@@ -1,0 +1,6 @@
+images*/
+test/
+__pycache__/
+*.tmp
+.env
+*.env
