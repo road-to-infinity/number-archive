@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-import argparse, glob, os, sys
+import argparse, os, sys
 from num2words import num2words
 from PIL import Image, ImageDraw, ImageFont
 
-W, H = 1080, 1350
+W, H = 1440, 1800
 BG, INK = (250, 244, 230), (28, 28, 28)
-DIV_Y, MAX_W = 700, 920
+LINE_Y = H * 2 // 3
+MAX_W = int(W * 0.86)
 
 def spell(n):
     t = num2words(n, lang="en").replace(",", "").replace(" and ", " ")
@@ -13,26 +14,13 @@ def spell(n):
 
 def find_font():
     here = os.path.dirname(os.path.abspath(__file__))
-    paths = sorted(glob.glob(os.path.join(here, "fonts", "*.ttf")))
-    paths += ["/system/fonts/Roboto-Bold.ttf",
-              "/system/fonts/RobotoStatic-Bold.ttf",
-              "/system/fonts/Roboto-Regular.ttf",
-              "/system/fonts/NotoSans-Bold.ttf",
-              "/system/fonts/DroidSans-Bold.ttf"]
-    paths += sorted(glob.glob("/system/fonts/*Bold*.ttf"))
-    paths += sorted(glob.glob("/system/fonts/Roboto*.ttf"))
-    for p in paths:
-        if os.path.exists(p):
-            return p
-    sys.exit("No font found. Put a .ttf file in ~/numberarchive/fonts/")
+    p = os.path.join(here, "fonts", "PoetsenOne-Regular.ttf")
+    if os.path.exists(p):
+        return p
+    sys.exit("Font missing: fonts/PoetsenOne-Regular.ttf")
 
 def font_at(path, size):
-    f = ImageFont.truetype(path, size)
-    try:
-        f.set_variation_by_name("Bold")
-    except Exception:
-        pass
-    return f
+    return ImageFont.truetype(path, size)
 
 def box(d, text, f):
     return d.textbbox((0, 0), text, font=f, anchor="ls")
@@ -43,11 +31,11 @@ def draw_c(d, text, f, cx, cy):
            text, font=f, fill=INK, anchor="ls")
 
 def fit_numeral(d, text, path):
-    size = 560
+    size = int(H * 0.40)
     while size > 40:
         f = font_at(path, size)
         b = box(d, text, f)
-        if b[2] - b[0] <= MAX_W and b[3] - b[1] <= 520:
+        if b[2] - b[0] <= MAX_W and b[3] - b[1] <= H * 0.46:
             return f
         size -= 8
     return font_at(path, 40)
@@ -65,12 +53,12 @@ def wrap(d, text, f):
     return lines
 
 def fit_words(d, text, path):
-    size = 140
+    size = int(H * 0.09)
     while size > 24:
         f = font_at(path, size)
         lines = wrap(d, text, f)
         widest = max(d.textlength(l, font=f) for l in lines)
-        if widest <= MAX_W and len(lines) * size * 1.25 <= 480:
+        if widest <= MAX_W and len(lines) * size * 1.25 <= H * 0.24:
             return f, lines
         size -= 4
     f = font_at(path, 24)
@@ -80,11 +68,13 @@ def render(n, path):
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
     num = str(n)
-    draw_c(d, num, fit_numeral(d, num, path), W / 2, 375)
-    d.rectangle([160, DIV_Y - 2, W - 160, DIV_Y + 2], fill=INK)
+    draw_c(d, num, fit_numeral(d, num, path), W / 2, LINE_Y / 2)
+    m = int(W * 0.12)
+    d.rectangle([m, LINE_Y - 3, W - m, LINE_Y + 3], fill=INK)
     wf, lines = fit_words(d, spell(n), path)
     lh = wf.size * 1.25
-    top = 1000 - len(lines) * lh / 2
+    mid = (LINE_Y + H) / 2
+    top = mid - len(lines) * lh / 2
     for i, l in enumerate(lines):
         draw_c(d, l, wf, W / 2, top + lh * i + lh / 2)
     return img
@@ -108,7 +98,7 @@ def main():
             skipped += 1
             continue
         tmp = dest + ".tmp"
-        render(n, path).save(tmp, "JPEG", quality=92,
+        render(n, path).save(tmp, "JPEG", quality=95,
                              optimize=True, subsampling=0)
         os.replace(tmp, dest)
         made += 1
