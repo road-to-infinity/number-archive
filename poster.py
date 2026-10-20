@@ -30,16 +30,30 @@ def th_publish(uid, url, txt):
     c = post_threads.call("POST", f"/{uid}/threads", media_type="IMAGE",
                           image_url=url, text=txt,
                           topic_tag="number_archive")["id"]
+    time.sleep(8)
+    ready = False
     for _ in range(25):
-        st = post_threads.call("GET", f"/{c}", fields="status").get("status")
+        try:
+            st = post_threads.call("GET", f"/{c}", fields="status").get("status")
+        except RuntimeError:
+            st = None
         if st == "FINISHED":
+            ready = True
             break
         if st in ("ERROR", "EXPIRED"):
             raise RuntimeError("Threads container " + st)
-        time.sleep(3)
-    else:
+        time.sleep(4)
+    if not ready:
         raise RuntimeError("Threads container not ready")
-    return post_threads.call("POST", f"/{uid}/threads_publish", creation_id=c)["id"]
+    last = None
+    for _ in range(3):
+        try:
+            return post_threads.call("POST", f"/{uid}/threads_publish",
+                                     creation_id=c)["id"]
+        except RuntimeError as e:
+            last = e
+            time.sleep(6)
+    raise last
 
 def destroy(pid):
     p = {"public_id": pid, "timestamp": str(int(time.time()))}
